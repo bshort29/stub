@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stub — concerts and tickets</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#15142B;--paper:#F3F0FF;--cobalt:#3A3AFF;--gold:#FFB627;--slate:#6B6A85;--bg:#1B1A3A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--paper);font:400 16px/1.5 "DM Sans",system-ui,sans-serif}
+h1,h2,.day{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+button,input{font:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 64px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:20px}
+.logo{font:800 28px "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+.who{font-size:14px;color:#B9B7D9;display:flex;gap:10px;align-items:center}
+.btn{border:0;border-radius:8px;padding:10px 16px;font-weight:500;cursor:pointer;background:var(--paper);color:var(--ink)}
+.btn.ghost{background:transparent;color:var(--paper);border:1px solid #5B5A8A}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button{border:1px solid #5B5A8A;background:none;color:var(--paper);border-radius:99px;padding:8px 16px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.tabs input{flex:1;min-width:160px;border-radius:99px;border:1px solid #5B5A8A;background:transparent;color:var(--paper);padding:8px 16px}
+/* auth */
+#auth{max-width:380px;margin:12vh auto 0;padding:0 16px}
+#auth h1{font-size:40px;line-height:1.05;margin:0 0 8px}
+#auth p{color:#B9B7D9;margin:0 0 24px}
+.field{display:block;width:100%;margin-bottom:10px;padding:12px;border-radius:8px;border:0;background:var(--paper);color:var(--ink)}
+.oauth{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.link{background:none;border:0;color:var(--gold);cursor:pointer;padding:0;text-decoration:underline}
+#msg{color:var(--gold);min-height:24px;margin:8px 0 0}
+/* ticket stub */
+.tix{display:grid;grid-template-columns:1fr 150px;margin-bottom:14px;color:var(--ink);position:relative}
+.main{background:var(--paper);border-radius:14px 0 0 14px;display:flex;gap:14px;padding:14px;align-items:center;min-width:0}
+.main img,.main .ph{width:84px;height:84px;border-radius:8px;object-fit:cover;background:#D9D5F5;flex:none}
+.main h2{font-size:20px;line-height:1.15;margin:0 0 4px}
+.main p{margin:0;color:var(--slate);font-size:14px;overflow-wrap:anywhere}
+.stub{background:var(--cobalt);color:#fff;border-radius:0 14px 14px 0;padding:12px;display:flex;flex-direction:column;gap:6px;justify-content:center;border-left:2px dashed var(--bg)}
+.tix::before,.tix::after{content:"";position:absolute;right:139px;width:22px;height:22px;border-radius:50%;background:var(--bg);z-index:1}
+.tix::before{top:-11px}.tix::after{bottom:-11px}
+.day{font-weight:800;font-size:15px;margin-bottom:2px}
+.stub button,.stub a{border:1px solid #ffffff99;background:none;color:#fff;border-radius:6px;padding:5px;font-size:13px;text-align:center;text-decoration:none;cursor:pointer}
+.stub button[aria-pressed=true]{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:500}
+.empty{color:#B9B7D9;padding:32px 0}
+@media(max-width:560px){.tix{grid-template-columns:1fr 112px}.tix::before,.tix::after{right:101px}.main img,.main .ph{width:56px;height:56px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style></head>
+<body>
+<section id="auth" hidden>
+  <h1>Stub</h1>
+  <p>Sign in to browse upcoming concerts and keep track of your tickets.</p>
+  <form id="f">
+    <input class="field" id="em" type="email" placeholder="Email" autocomplete="email" required>
+    <input class="field" id="pw" type="password" placeholder="Password (6+ characters)" autocomplete="current-password" minlength="6" required>
+    <button class="btn" id="go" style="width:100%">Sign in</button>
+  </form>
+  <div class="oauth">
+    <button class="btn ghost" data-p="google">Google</button>
+    <button class="btn ghost" data-p="github">GitHub</button>
+  </div>
+  <button class="link" id="swap">Create an account</button>
+  <p id="msg" role="status"></p>
+</section>
+
+<main id="app" class="wrap" hidden>
+  <header>
+    <span class="logo">Stub</span>
+    <span class="who"><span id="who"></span><button class="btn ghost" id="out">Sign out</button></span>
+  </header>
+  <div class="tabs">
+    <button data-v="all" aria-pressed="true">Upcoming shows</button>
+    <button data-v="mine" aria-pressed="false">My tickets</button>
+    <input id="q" type="search" placeholder="Search artist, venue, or city" aria-label="Search">
+  </div>
+  <div id="list"></div>
+</main>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_KEY"; // safe to expose: row-level security protects the data
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let mode = "in", view = "all", q = "", concerts = [], mine = {}, ch;
+
+// ---- auth ----
+const msg = t => $("#msg").textContent = t;
+$("#f").onsubmit = async e => {
+  e.preventDefault(); msg("");
+  const creds = { email: $("#em").value, password: $("#pw").value };
+  const { data, error } = mode === "in"
+    ? await sb.auth.signInWithPassword(creds)
+    : await sb.auth.signUp({ ...creds, options: { emailRedirectTo: location.href.split("#")[0] } });
+  if (error) msg(error.message);
+  else if (mode === "up" && !data.session) msg("Check your email to confirm your account, then sign in.");
+};
+$("#swap").onclick = () => {
+  mode = mode === "in" ? "up" : "in";
+  $("#go").textContent = mode === "in" ? "Sign in" : "Create account";
+  $("#swap").textContent = mode === "in" ? "Create an account" : "I already have an account";
+  $("#pw").autocomplete = mode === "in" ? "current-password" : "new-password"; msg("");
+};
+document.querySelectorAll("[data-p]").forEach(b => b.onclick = () =>
+  sb.auth.signInWithOAuth({ provider: b.dataset.p, options: { redirectTo: location.href.split("#")[0] } }));
+$("#out").onclick = () => sb.auth.signOut();
+
+sb.auth.onAuthStateChange((ev, s) => {
+  if (ev === "TOKEN_REFRESHED") return;
+  $("#auth").hidden = !!s; $("#app").hidden = !s;
+  if (s) { $("#who").textContent = s.user.email; load(); live(); }
+  else { if (ch) sb.removeChannel(ch); ch = null; concerts = []; mine = {}; }
+});
+
+// ---- data ----
+async function load() {
+  const [c, t] = await Promise.all([
+    sb.from("concerts").select("*, artists(name,image_url)").gte("starts_at", new Date().toISOString()).order("starts_at").limit(150),
+    sb.from("tickets").select("concert_id,status"),
+  ]);
+  concerts = c.data ?? [];
+  mine = Object.fromEntries((t.data ?? []).map(x => [x.concert_id, x.status]));
+  draw();
+}
+function live() { // new concerts and refreshed photos appear without a reload
+  if (ch) return; let t; const r = () => { clearTimeout(t); t = setTimeout(load, 2000); };
+  ch = sb.channel("live");
+  ["concerts", "artists"].forEach(table => ch.on("postgres_changes", { event: "*", schema: "public", table }, r));
+  ch.subscribe();
+}
+
+// ---- ui ----
+const card = c => {
+  const d = new Date(c.starts_at), a = c.artists, s = mine[c.id];
+  return `<article class="tix"><div class="main">
+    ${a?.image_url ? `<img src="${esc(a.image_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<div class="ph"></div>`}
+    <div><h2>${esc(a?.name ?? c.name)}</h2><p>${esc(c.name)}</p><p>${esc(c.venue)}${c.city ? ", " + esc(c.city) : ""}</p></div></div>
+    <div class="stub"><div class="day">${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}<br>${d.getFullYear()}</div>
+      <button data-id="${c.id}" data-s="watching" aria-pressed="${s === "watching"}">Watch</button>
+      <button data-id="${c.id}" data-s="have" aria-pressed="${s === "have"}">I have tickets</button>
+      ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">Find tickets</a>` : ""}
+    </div></article>`;
+};
+function draw() {
+  const list = concerts.filter(c => (view === "all" || mine[c.id]) &&
+    [c.name, c.venue, c.city, c.artists?.name].join(" ").toLowerCase().includes(q));
+  $("#list").innerHTML = list.length ? list.map(card).join("")
+    : `<p class="empty">${view === "mine" ? "No tickets yet. Choose Watch or I have tickets on any show." : "No shows match your search."}</p>`;
+}
+$("#list").onclick = async e => {
+  const b = e.target.closest("button[data-id]"); if (!b) return;
+  const id = +b.dataset.id, s = b.dataset.s;
+  if (mine[id] === s) { await sb.from("tickets").delete().eq("concert_id", id); delete mine[id]; }
+  else {
+    const { error } = await sb.from("tickets").upsert({ concert_id: id, status: s }, { onConflict: "user_id,concert_id" });
+    if (error) return alert(error.message);
+    mine[id] = s;
+  }
+  draw();
+};
+document.querySelectorAll(".tabs [data-v]").forEach(b => b.onclick = () => {
+  view = b.dataset.v;
+  document.querySelectorAll(".tabs [data-v]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  draw();
+});
+$("#q").oninput = e => { q = e.target.value.toLowerCase(); draw(); };
+</script>
+</body></html>
